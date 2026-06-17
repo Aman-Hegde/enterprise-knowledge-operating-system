@@ -1,0 +1,20 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Databases
+neo4j==5.27.0
+qdrant-client==1.12.1
+
+# Agents and AI orchestration
+langchain==0.3.14
+langgraph==0.2.62
+
+# Evaluation
+ragas==0.2.10
+
+# Testing
+pytest==8.3.4
+httpx==0.28.1
