@@ -15,7 +15,7 @@ from services.retrieval.vector_store import (
     search,
 )
 
-COLLECTION_NAME = "ekos_rag_documents"
+COLLECTION_NAME = "ekos_documents"
 
 
 def build_rag_prompt(query: str, retrieved_chunks: list[str]) -> str:
@@ -37,6 +37,29 @@ Question:
 Answer:"""
 
 
+def answer_from_collection(
+    query: str,
+    collection_name: str = COLLECTION_NAME,
+    top_k: int = 3,
+) -> tuple[str, list[str]]:
+    """Retrieve context from an existing collection and generate an answer."""
+    query_embedding = generate_embedding(query)
+    search_results = search(collection_name, query_embedding, top_k=top_k)
+    retrieved_chunks = [
+        str(result.payload.get("text", ""))
+        for result in search_results
+        if result.payload and result.payload.get("text")
+    ]
+
+    if not retrieved_chunks:
+        raise ValueError("No relevant context was retrieved from the documents")
+
+    prompt = build_rag_prompt(query, retrieved_chunks)
+    answer = generate_answer(prompt)
+
+    return answer, retrieved_chunks
+
+
 def run_rag_pipeline(
     pdf_path: str,
     query: str,
@@ -54,18 +77,4 @@ def run_rag_pipeline(
     create_collection(COLLECTION_NAME, vector_size=len(embeddings[0]))
     add_chunks(COLLECTION_NAME, chunks, embeddings)
 
-    query_embedding = generate_embedding(query)
-    search_results = search(COLLECTION_NAME, query_embedding, top_k=top_k)
-    retrieved_chunks = [
-        str(result.payload.get("text", ""))
-        for result in search_results
-        if result.payload and result.payload.get("text")
-    ]
-
-    if not retrieved_chunks:
-        raise ValueError("No relevant context was retrieved from the PDF")
-
-    prompt = build_rag_prompt(query, retrieved_chunks)
-    answer = generate_answer(prompt)
-
-    return answer, retrieved_chunks
+    return answer_from_collection(query, COLLECTION_NAME, top_k)
