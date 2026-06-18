@@ -4,12 +4,14 @@ import shutil
 from fastapi import FastAPI, File, HTTPException, UploadFile
 
 from backend.app.schemas.documents import DocumentUploadResponse
+from backend.app.schemas.graphrag import GraphRAGAnswerResponse
 from backend.app.schemas.rag import RAGAnswerResponse, RAGQuestionRequest
 from services.embeddings.embedding_service import generate_embeddings
 from services.ingestion.pdf_loader import (
     extract_text_from_pdf,
     split_text_into_chunks,
 )
+from services.retrieval.graphrag_pipeline import run_graphrag_pipeline
 from services.retrieval.rag_pipeline import answer_from_collection
 from services.retrieval.vector_store import add_chunks, create_collection
 
@@ -107,4 +109,39 @@ async def ask_question(request: RAGQuestionRequest) -> RAGAnswerResponse:
         question=question,
         answer=answer,
         retrieved_context=retrieved_chunks,
+    )
+
+
+@app.post(
+    "/graphrag/ask",
+    response_model=GraphRAGAnswerResponse,
+    tags=["GraphRAG"],
+)
+async def ask_graphrag_question(
+    request: RAGQuestionRequest,
+) -> GraphRAGAnswerResponse:
+    """Answer a question using both vector and Neo4j graph context."""
+    question = request.question.strip()
+
+    if not question:
+        raise HTTPException(status_code=422, detail="Question cannot be empty")
+
+    try:
+        answer, vector_context, graph_context = run_graphrag_pipeline(
+            question=question,
+            collection_name=COLLECTION_NAME,
+            top_k=3,
+        )
+    except Exception as exc:
+        # The in-memory vector collection must be populated by an upload first.
+        raise HTTPException(
+            status_code=400,
+            detail="Upload and index a PDF before asking a GraphRAG question",
+        ) from exc
+
+    return GraphRAGAnswerResponse(
+        question=question,
+        answer=answer,
+        vector_context=vector_context,
+        graph_context=graph_context,
     )
