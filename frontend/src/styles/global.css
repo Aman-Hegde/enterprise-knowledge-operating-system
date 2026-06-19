@@ -514,6 +514,16 @@ input:focus-visible {
   border-radius: 7px;
 }
 
+.selected-files {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.selected-files .selected-file {
+  margin-top: 0;
+}
+
 .selected-file > div:nth-child(2),
 .upload-success > div {
   min-width: 0;
@@ -550,6 +560,25 @@ input:focus-visible {
 
 .upload-success strong {
   color: var(--text);
+}
+
+.uploaded-filenames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin: 9px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.uploaded-filenames li {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.upload-warning {
+  color: var(--warning) !important;
+  line-height: 1.45;
 }
 
 .icon-button {

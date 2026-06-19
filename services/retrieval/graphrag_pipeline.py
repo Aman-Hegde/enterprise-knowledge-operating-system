@@ -26,11 +26,14 @@ Question:
 
 def build_graphrag_prompt(
     question: str,
-    vector_context: list[str],
+    vector_context: list[dict[str, object]],
     graph_context: str,
 ) -> str:
     """Build a prompt grounded in vector and graph retrieval results."""
-    vector_text = "\n\n---\n\n".join(vector_context)
+    vector_text = "\n\n---\n\n".join(
+        f"Source: {chunk['filename']}\n{chunk['text']}"
+        for chunk in vector_context
+    )
     graph_text = graph_context or "[No graph relationships were found]"
 
     return f"""You are an enterprise knowledge assistant.
@@ -53,11 +56,11 @@ Answer:"""
 
 def run_graphrag_pipeline(
     question: str,
-    chunks: list[str] | None = None,
+    chunks: list[str | dict[str, object]] | None = None,
     embeddings: list[list[float]] | None = None,
     collection_name: str = COLLECTION_NAME,
     top_k: int = 3,
-) -> tuple[str, list[str], str]:
+) -> tuple[str, list[dict[str, object]], str]:
     """Retrieve vector and graph context, then generate a grounded answer."""
     if (chunks is None) != (embeddings is None):
         raise ValueError("chunks and embeddings must be provided together")
@@ -78,7 +81,11 @@ def run_graphrag_pipeline(
     query_embedding = generate_embedding(question)
     vector_results = search(collection_name, query_embedding, top_k=top_k)
     vector_context = [
-        str(result.payload.get("text", ""))
+        {
+            "filename": str(result.payload.get("filename", "unknown")),
+            "chunk_index": int(result.payload.get("chunk_index", 0)),
+            "text": str(result.payload.get("text", "")),
+        }
         for result in vector_results
         if result.payload and result.payload.get("text")
     ]

@@ -18,9 +18,15 @@ from services.retrieval.vector_store import (
 COLLECTION_NAME = "ekos_documents"
 
 
-def build_rag_prompt(query: str, retrieved_chunks: list[str]) -> str:
+def build_rag_prompt(
+    query: str,
+    retrieved_chunks: list[dict[str, object]],
+) -> str:
     """Build a grounded prompt containing only retrieved document context."""
-    context = "\n\n---\n\n".join(retrieved_chunks)
+    context = "\n\n---\n\n".join(
+        f"Source: {chunk['filename']}\n{chunk['text']}"
+        for chunk in retrieved_chunks
+    )
 
     return f"""You are an enterprise knowledge assistant.
 Answer the question using only the context below.
@@ -41,12 +47,16 @@ def answer_from_collection(
     query: str,
     collection_name: str = COLLECTION_NAME,
     top_k: int = 3,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[dict[str, object]]]:
     """Retrieve context from an existing collection and generate an answer."""
     query_embedding = generate_embedding(query)
     search_results = search(collection_name, query_embedding, top_k=top_k)
     retrieved_chunks = [
-        str(result.payload.get("text", ""))
+        {
+            "filename": str(result.payload.get("filename", "unknown")),
+            "chunk_index": int(result.payload.get("chunk_index", 0)),
+            "text": str(result.payload.get("text", "")),
+        }
         for result in search_results
         if result.payload and result.payload.get("text")
     ]
@@ -64,7 +74,7 @@ def run_rag_pipeline(
     pdf_path: str,
     query: str,
     top_k: int = 3,
-) -> tuple[str, list[str]]:
+) -> tuple[str, list[dict[str, object]]]:
     """Index one PDF, retrieve relevant chunks, and generate an answer."""
     text = extract_text_from_pdf(pdf_path)
     chunks = split_text_into_chunks(text)

@@ -3,6 +3,14 @@
 from pydantic import BaseModel, Field
 
 
+class RetrievedChunk(BaseModel):
+    """Document chunk returned as retrieval evidence."""
+
+    filename: str
+    chunk_index: int
+    text: str
+
+
 class RAGQuestionRequest(BaseModel):
     """Question submitted to the RAG pipeline."""
 
@@ -14,4 +22,4 @@ class RAGAnswerResponse(BaseModel):
 
     question: str
     answer: str
-    retrieved_context: list[str]
+    retrieved_context: list[RetrievedChunk]

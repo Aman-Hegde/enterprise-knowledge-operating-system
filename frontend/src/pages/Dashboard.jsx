@@ -41,7 +41,7 @@ function Dashboard({ backendStatus, lastUpload, onNavigate }) {
       <section className="metric-grid" aria-label="Workspace summary">
         <article className="metric-card">
           <span>Documents indexed</span>
-          <strong>{lastUpload ? '1' : '0'}</strong>
+          <strong>{lastUpload?.total_documents ?? '0'}</strong>
           <small>Current memory session</small>
         </article>
         <article className="metric-card">
@@ -91,11 +91,13 @@ function Dashboard({ backendStatus, lastUpload, onNavigate }) {
 
           {lastUpload ? (
             <div className="document-summary">
-              <strong>{lastUpload.filename}</strong>
+              <strong>
+                {lastUpload.uploaded_filenames?.join(', ') || 'Documents indexed'}
+              </strong>
               <dl>
                 <div>
-                  <dt>Characters</dt>
-                  <dd>{lastUpload.total_characters.toLocaleString()}</dd>
+                  <dt>Documents</dt>
+                  <dd>{lastUpload.total_documents}</dd>
                 </div>
                 <div>
                   <dt>Chunks</dt>

@@ -105,9 +105,14 @@ function GraphRAGChat({ hasDocument }) {
                   onToggle={() => toggleSection('vector')}
                 >
                   {response.vector_context.map((context, index) => (
-                    <article className="context-item" key={`${context}-${index}`}>
-                      <span>Chunk {index + 1}</span>
-                      <p>{context}</p>
+                    <article
+                      className="context-item"
+                      key={`${context.filename}-${context.chunk_index}-${index}`}
+                    >
+                      <span>
+                        {context.filename} · Chunk {context.chunk_index + 1}
+                      </span>
+                      <p>{context.text}</p>
                     </article>
                   ))}
                 </ContextSection>

@@ -15,9 +15,9 @@ export async function getHealth() {
   return parseResponse(response)
 }
 
-export async function uploadDocument(file) {
+export async function uploadDocuments(files) {
   const formData = new FormData()
-  formData.append('file', file)
+  files.forEach((file) => formData.append('files', file))
 
   const response = await fetch(`${API_BASE_URL}/documents/upload`, {
     method: 'POST',

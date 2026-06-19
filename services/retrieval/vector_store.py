@@ -29,7 +29,7 @@ def create_collection(collection_name: str, vector_size: int) -> None:
 
 def add_chunks(
     collection_name: str,
-    chunks: list[str],
+    chunks: list[str | dict[str, object]],
     embeddings: list[list[float]],
 ) -> None:
     """Store document chunks and their matching embeddings in Qdrant."""
@@ -39,14 +39,29 @@ def add_chunks(
     if not chunks:
         return
 
-    points = [
-        models.PointStruct(
-            id=index,
-            vector=embedding,
-            payload={"text": chunk, "chunk_index": index},
+    points = []
+    for index, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        # Legacy scripts may still pass plain strings instead of metadata.
+        payload = (
+            {
+                "filename": str(chunk.get("filename", "unknown")),
+                "chunk_index": int(chunk.get("chunk_index", index)),
+                "text": str(chunk.get("text", "")),
+            }
+            if isinstance(chunk, dict)
+            else {
+                "filename": "unknown",
+                "chunk_index": index,
+                "text": chunk,
+            }
         )
-        for index, (chunk, embedding) in enumerate(zip(chunks, embeddings))
-    ]
+        points.append(
+            models.PointStruct(
+                id=index,
+                vector=embedding,
+                payload=payload,
+            )
+        )
 
     qdrant_client.upsert(
         collection_name=collection_name,
