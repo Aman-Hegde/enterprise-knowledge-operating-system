@@ -6,7 +6,7 @@ from services.retrieval.graph_retriever import (
     find_entity_by_name,
     get_graph_context,
 )
-from services.retrieval.vector_store import search
+from services.retrieval.vector_store import add_chunks, create_collection, search
 
 COLLECTION_NAME = "ekos_documents"
 
@@ -53,10 +53,28 @@ Answer:"""
 
 def run_graphrag_pipeline(
     question: str,
+    chunks: list[str] | None = None,
+    embeddings: list[list[float]] | None = None,
     collection_name: str = COLLECTION_NAME,
     top_k: int = 3,
 ) -> tuple[str, list[str], str]:
     """Retrieve vector and graph context, then generate a grounded answer."""
+    if (chunks is None) != (embeddings is None):
+        raise ValueError("chunks and embeddings must be provided together")
+
+    if chunks is not None and embeddings is not None:
+        if not chunks:
+            raise ValueError("No indexed chunks were provided")
+
+        if len(chunks) != len(embeddings):
+            raise ValueError(
+                "chunks and embeddings must contain the same number of items"
+            )
+
+        # Rebuild Qdrant from the FastAPI-owned index state for this query.
+        create_collection(collection_name, vector_size=len(embeddings[0]))
+        add_chunks(collection_name, chunks, embeddings)
+
     query_embedding = generate_embedding(question)
     vector_results = search(collection_name, query_embedding, top_k=top_k)
     vector_context = [

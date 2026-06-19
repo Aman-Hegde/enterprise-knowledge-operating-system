@@ -25,6 +25,12 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RAW_DATA_DIRECTORY = PROJECT_ROOT / "data" / "raw"
 COLLECTION_NAME = "ekos_documents"
 
+# The FastAPI process owns the current in-memory document index.
+indexed_chunks: list[str] = []
+indexed_embeddings: list[list[float]] = []
+is_document_indexed = False
+latest_filename: str | None = None
+
 
 @app.get("/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
@@ -39,6 +45,11 @@ async def health_check() -> dict[str, str]:
 )
 async def upload_document(file: UploadFile = File(...)) -> DocumentUploadResponse:
     """Save, extract, embed, and index one uploaded PDF document."""
+    global indexed_chunks
+    global indexed_embeddings
+    global is_document_indexed
+    global latest_filename
+
     original_filename = file.filename or ""
     safe_filename = Path(original_filename).name
 
@@ -67,6 +78,13 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentUploadRespons
         # Sprint 4 keeps one collection and replaces its contents per upload.
         create_collection(COLLECTION_NAME, vector_size=len(embeddings[0]))
         add_chunks(COLLECTION_NAME, chunks, embeddings)
+
+        # Update shared state only after the complete indexing operation succeeds.
+        indexed_chunks = chunks.copy()
+        indexed_embeddings = [embedding.copy() for embedding in embeddings]
+        is_document_indexed = True
+        latest_filename = safe_filename
+        print(f"[EKOS] Chunks indexed after upload: {len(indexed_chunks)}")
     except HTTPException:
         raise
     except Exception as exc:
@@ -126,18 +144,30 @@ async def ask_graphrag_question(
     if not question:
         raise HTTPException(status_code=422, detail="Question cannot be empty")
 
-    try:
-        answer, vector_context, graph_context = run_graphrag_pipeline(
-            question=question,
-            collection_name=COLLECTION_NAME,
-            top_k=3,
-        )
-    except Exception as exc:
-        # The in-memory vector collection must be populated by an upload first.
+    if not is_document_indexed:
         raise HTTPException(
             status_code=400,
             detail="Upload and index a PDF before asking a GraphRAG question",
-        ) from exc
+        )
+
+    print(f"[EKOS] Chunks available before GraphRAG query: {len(indexed_chunks)}")
+
+    try:
+        answer, vector_context, graph_context = run_graphrag_pipeline(
+            question=question,
+            chunks=indexed_chunks,
+            embeddings=indexed_embeddings,
+            collection_name=COLLECTION_NAME,
+            top_k=3,
+        )
+    except Exception as error:
+        print(f"[EKOS][GraphRAG ERROR] {type(error).__name__}: {error}")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"GraphRAG query failed: {type(error).__name__}: {error}"
+            ),
+        ) from error
 
     return GraphRAGAnswerResponse(
         question=question,
