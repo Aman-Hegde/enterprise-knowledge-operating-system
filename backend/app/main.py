@@ -2,11 +2,13 @@ from pathlib import Path
 import shutil
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.schemas.documents import DocumentUploadResponse
 from backend.app.schemas.graphrag import GraphRAGAnswerResponse
 from backend.app.schemas.rag import RAGAnswerResponse, RAGQuestionRequest
 from services.embeddings.embedding_service import generate_embeddings
+from services.graph_builder.graph_service import get_graph_network
 from services.ingestion.pdf_loader import (
     extract_text_from_pdf,
     split_text_into_chunks,
@@ -19,6 +21,15 @@ app = FastAPI(
     title="Enterprise Knowledge Operating System",
     description="API service for the EKOS knowledge platform.",
     version="0.1.0",
+)
+
+# The frontend fetches graph data directly from FastAPI during local development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://127.0.0.1:5173", "http://localhost:5173"],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -36,6 +47,19 @@ latest_filename: str | None = None
 async def health_check() -> dict[str, str]:
     """Return a simple service health response."""
     return {"status": "ok", "message": "EKOS backend is running"}
+
+
+@app.get("/graph/network", tags=["Graph"])
+async def graph_network() -> dict[str, list[dict[str, str]]]:
+    """Return the live Neo4j relationship network for visualization."""
+    try:
+        return get_graph_network()
+    except Exception as error:
+        print(f"[EKOS][GRAPH NETWORK ERROR] {type(error).__name__}: {error}")
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to load graph data from Neo4j",
+        ) from error
 
 
 @app.post(

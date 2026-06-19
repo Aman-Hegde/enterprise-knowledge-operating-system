@@ -763,10 +763,28 @@ input:focus-visible {
 }
 
 .knowledge-graph-canvas {
+  position: relative;
   width: 100%;
   min-height: 360px;
   overflow: hidden;
   cursor: grab;
+}
+
+.graph-feedback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.graph-feedback--error {
+  color: #ffb5b5;
 }
 
 .knowledge-graph-canvas:active {

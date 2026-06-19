@@ -123,3 +123,44 @@ def build_graph(graph_data: dict[str, Any]) -> dict[str, int]:
         "entities_created": entities_created,
         "relationships_created": relationships_created,
     }
+
+
+def get_graph_network() -> dict[str, list[dict[str, str]]]:
+    """Return all Neo4j relationships in frontend-friendly graph format."""
+    _, _, _, database = _neo4j_settings()
+    query = """
+    MATCH (source:Entity)-[relationship]->(target:Entity)
+    RETURN source.name AS source,
+           source.type AS source_type,
+           target.name AS target,
+           target.type AS target_type,
+           type(relationship) AS label
+    ORDER BY source, label, target
+    """
+
+    nodes: dict[str, dict[str, str]] = {}
+    links: list[dict[str, str]] = []
+
+    with _get_driver().session(database=database) as session:
+        for record in session.run(query):
+            source = str(record["source"])
+            target = str(record["target"])
+
+            # A dictionary naturally removes duplicate nodes by their name.
+            nodes[source] = {
+                "id": source,
+                "type": str(record["source_type"] or "Entity"),
+            }
+            nodes[target] = {
+                "id": target,
+                "type": str(record["target_type"] or "Entity"),
+            }
+            links.append(
+                {
+                    "source": source,
+                    "target": target,
+                    "label": str(record["label"]),
+                }
+            )
+
+    return {"nodes": list(nodes.values()), "links": links}
